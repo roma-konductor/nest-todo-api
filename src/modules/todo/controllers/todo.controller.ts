@@ -1,42 +1,53 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { Todo } from '../entities/todo.entity';
+import { Body, Controller, Delete, Get, Param, Post, Put, NotAcceptableException, HttpException, HttpStatus } from '@nestjs/common';
 import { CreateDto, UpdateDto } from './dto';
-// GetOne
-// GetMany
-// Post (Create Or Update)
-// Delete (Delete)
+import { TodoService } from '../services/todo.service';
+import { Todo } from '../entities/todo.entity';
 @Controller('rest/todo')
 export class TodoController {
+  constructor(private readonly todoservice: TodoService){}
+
   @Get()
-  getAllAction(): string {
-    return "Todo Get All";
+  getAllAction(): Promise<Todo[]> {
+    return this.todoservice.findAll();
   }
 
   @Get(':id')
-  getOneAction(@Param('id') id: string): string {
-    return "Todo Get One by id=" + id;
+  async getOneAction(@Param('id') id: string): Promise<Todo | HttpException> {
+    const todo = await this.todoservice.findOne(id);
+    if(todo === undefined){
+      throw new HttpException( 'Todo with id=' + id + ' not exists', HttpStatus.NOT_FOUND);
+    }
+    return todo;
   }
 
   // Create
   @Post()
-  createAction(@Body() todo: CreateDto): CreateDto {
-    console.log(todo);
-    return todo;
+  createAction(@Body() createDto: CreateDto): Promise<Todo> {
+    const todo = new Todo();
+    todo.title = createDto.title;
+    if(createDto.isCompleted !== undefined){
+      todo.isCompleted = createDto.isCompleted;
+    }
+    return this.todoservice.create(todo);
   }
 
   // Create
   @Put(':id')
-  updateAction(
+  async updateAction(
     @Param('id') id: string,
-    @Body() todo: UpdateDto
-  ): UpdateDto {
-    console.log('Search by ID', id);
-    console.log(todo, 'saved');
-    return todo;
+    @Body() updateDto: UpdateDto
+  ): Promise<Todo> {
+    const todo = await this.todoservice.findOne(id);
+    if(todo === undefined){
+      throw new NotAcceptableException('Todo with id=' + id + ' not exists');
+    }
+    todo.title = updateDto.title;
+    todo.isCompleted = updateDto.isCompleted;
+    return todo;//this.todoservice.update(todo);
   }
 
   @Delete(':id')
-  deleteAction(@Param('id') id: string): string {
-    return "Delete Todo by id=" + id;
+  deleteAction(@Param('id') id: string): Promise<void> {
+    return this.todoservice.remove(id);
   }
 }
